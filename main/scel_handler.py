@@ -128,7 +128,7 @@ class RimeWriter:
 
 
 def read_scel_msg(scel_path: str):
-    result = {}
+    dict_scel_detail = {}
     msg_reader = lambda data: ''.join(
         map(lambda x: '\n' if x == '\r' else x,
             map(lambda x: ' ' if x == '\u3000' else x,
@@ -138,20 +138,20 @@ def read_scel_msg(scel_path: str):
 
     with open(scel_path, 'rb') as f:
         f.seek(0x130)
-        result['dict_name'] = msg_reader(f.read(0x338 - 0x130))
-        result['dict_type'] = msg_reader(f.read(0x540 - 0x338))
-        result['dict_msg'] = msg_reader(f.read(0xD40 - 0x540))
-        result['dict_exp'] = msg_reader(f.read(0x1540 - 0xD40))
+        dict_scel_detail['dict_name'] = msg_reader(f.read(0x338 - 0x130))
+        dict_scel_detail['dict_type'] = msg_reader(f.read(0x540 - 0x338))
+        dict_scel_detail['dict_msg'] = msg_reader(f.read(0xD40 - 0x540))
+        dict_scel_detail['dict_exp'] = msg_reader(f.read(0x1540 - 0xD40))
 
-        print(r'词库名称：' + result['dict_name'])
-        print(r'词库类型：' + result['dict_type'])
-        print(r'词库信息：' + result['dict_msg'])
-        print(r'词库示例：' + result['dict_exp'])
-    return result
+        print(r'词库名称：' + dict_scel_detail['dict_name'])
+        print(r'词库类型：' + dict_scel_detail['dict_type'])
+        print(r'词库信息：' + dict_scel_detail['dict_msg'])
+        print(r'词库示例：' + dict_scel_detail['dict_exp'])
+    return dict_scel_detail
 
 
 def scel_to_rime(scel_path: str, rime_dir: str, rime_name: str,
-                 rime_version: str, result: {}):
+                 rime_version: str, dict_scel_detail: {}):
     '''
     搜狗细胞词库「scel」转换 RIME 词库风格程序调用方法
 
@@ -160,6 +160,7 @@ def scel_to_rime(scel_path: str, rime_dir: str, rime_name: str,
     :param rime_name:RIME 词库文件中头部名称，推荐：
                     「xxx.dict.yaml」取 xxx 作为该参数的实参﹝推荐但是不强求﹞
     :param rime_version:版本号，一般采用当前日期，例如：2024-05-16
+    :param dict_scel_detail:原搜狗细胞词库解析出来的词库详情信息.
     :return:
     '''
     # 判断输出文件目录是否存在，不存在则自动创建.
@@ -174,7 +175,7 @@ def scel_to_rime(scel_path: str, rime_dir: str, rime_name: str,
     rime_writer = RimeWriter(scel.get_table(), rime_name, rime_version)
     scel_file.close()
 
-    rime_writer.write(rime_dict_yaml, result)
+    rime_writer.write(rime_dict_yaml, dict_scel_detail)
 
 
 if __name__ == '__main__':
@@ -183,6 +184,6 @@ if __name__ == '__main__':
     rime_name = r'sougou.pinyin.wanmeishijie'
     rime_version = str(datetime.date.today())
 
-    result = read_scel_msg(scel_path)
+    dict_scel_detail = read_scel_msg(scel_path)
 
-    scel_to_rime(scel_path, rime_dir, rime_name, rime_version, result)
+    scel_to_rime(scel_path, rime_dir, rime_name, rime_version, dict_scel_detail)

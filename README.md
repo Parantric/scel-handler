@@ -1,7 +1,7 @@
 # ![Static Badge](https://img.shields.io/badge/python-blue)🐍 搜狗细胞词库转 `RIME` 风格词库
 ![](https://gitee.com/justdoitor/gitee-images-plus/raw/master/images/202405161455397.jpg)
 
-> 一个简答的搜狗细胞词库转换为支持 RIME 风格的词库 Python 项目。大量参考了别人的代码（其实就是抄的😊）.
+> 一个简单的搜狗细胞词库转换为支持 RIME 风格的词库 Python 项目。大量参考了别人的代码（其实就是抄的😊）.
 
 ## 🔗 参考
 

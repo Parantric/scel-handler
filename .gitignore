@@ -5,4 +5,5 @@
 /.idea/scel-handler.iml
 /.idea/vcs.xml
 /.idea
+/test/sougou.scel_spider_test.py
 /test/sougou_scel_to_rime_test.py

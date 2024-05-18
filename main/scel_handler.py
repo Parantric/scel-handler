@@ -31,6 +31,10 @@ class BufferedIOWrapper:
         self._buffer = bufferedReader
 
     def read_uint16(self) -> int:
+        '''
+        读取一个字符，并返回表示这个字符的 uint16 整数.
+        :return:
+        '''
         buffer = self._buffer.read(2)
         if buffer:
             return struct.unpack('<H', buffer)[0]
@@ -38,9 +42,23 @@ class BufferedIOWrapper:
             return 0
 
     def read_uint32(self) -> int:
-        return struct.unpack('<I', self._buffer.read(4))[0]
+        # return struct.unpack('<H', self._buffer.read(2))[0]
+        bytes = self._buffer.read(4)
+        str = struct.unpack('<I', bytes)[0]
+        return str
 
     def read_str(self) -> str:
+        '''
+        将二进制字节转成 16 位无符号整数，然后再转换成字符.
+        搜狗自定义的二进制文件是使用的小端模式存储，所有'<H'.用两个字节表示一个字符，故每次读取 2 个字节.
+        :return:
+        ''.join(
+            chr(struct.unpack('<H', self._buffer.read(2))[0])
+            for i in range(int(self.read_uint16() / 2)))
+        int(self.read_uint16() / 2))：读取 2 位，此 2 位 无符号 16 进制整数表示的是当前这个拼音表索引上的拼音的占多少个字节，
+        除以 2 表示有几个拼音（字节=>字符），因为每次读取都是 read(2),所以这里必须除以 2 作为循环读取的界限。
+        '''
+
         return ''.join(
             chr(struct.unpack('<H', self._buffer.read(2))[0])
             for i in range(int(self.read_uint16() / 2)))
@@ -52,9 +70,20 @@ class BufferedIOWrapper:
         return self._buffer.tell()
 
     def skip(self, offset):
+        '''
+        将光标从当前位置（seek 的 whence 参数为 1 表示以当前位置作为参考）移动 offset 个位置.
+        :param offset:
+        :return:
+        '''
         self._buffer.seek(offset, 1)
 
     def skip_uint16(self):
+        '''
+        将光标从当前位置，移动 2 位.
+        当前项目应用场景：
+            ①：解析拼音表的时候，拼音表的每个元素的前两位表示的是索引，没实际意义，故：可以跳过.
+        :return:
+        '''
         self.skip(2)
 
 
@@ -67,10 +96,16 @@ class Scel:
         self._table = []
 
     def _read_pinyin_palette(self) -> List[str]:
+        '''
+        读取拼音表
+        :return:
+        '''
         pinyin_palette = []
+        # 固定模式：拼音表从 0x1544 位置开始.
         self._buffer.seek(self.PINYIN_START)
+        # 拼音表之后因为是词汇表，所以，到了词汇表的范围，就代表是拼音表的末尾了.
         while self._buffer.tell() < self.CHAR_START:
-            # skipped index, doesn't need.
+            # 跳过拼音表中每个元素表示的索引.
             self._buffer.skip_uint16()
             pinyin_palette.append(self._buffer.read_str())
 
@@ -84,30 +119,41 @@ class Scel:
         except IndexError:
             return ''
 
-    def _read_table(self,
-                    pinyin_palette: List[str]) -> List[Tuple[str, str, int]]:
+    def _read_word_table(self,
+                         pinyin_palette: List[str]) -> List[Tuple[str, str, int]]:
+        '''
+        读取词汇表
+        :param pinyin_palette:
+        :return:
+        '''
         table = []
         self._buffer.seek(self.CHAR_START)
+        word_item_count = 0
+        # word_count：词组数量，使用海象表达式，在这里仅作非零判断.
         while word_count := self._buffer.read_uint16():
+            # 继续读取就是读取词组的数量了.
             pinyin = self._read_pinyin(pinyin_palette)
             if not pinyin:
                 break
-            for _ in range(word_count):
+            for i in range(word_count):
                 phrase = self._buffer.read_str()
-                # usually 10, at least 4 bytes after this is the order of the phrase (uint32), doesn't seen to matter.
+                # 这个条件是为了排除‘黑名单’，测试发现，很多 scel 文件末尾含有「DELTAB」表示‘黑名单’.如果不排除，程序会解析出错.
+                if phrase == '':
+                    break
                 skip_length = self._buffer.read_uint16()
                 order = self._buffer.read_uint32()
                 self._buffer.skip(skip_length - 4)
-
                 table.append((phrase, pinyin, order))
-
-        table.sort(key=lambda x: x[2])
+                word_item_count += 1
+        # 这个 sort 可以不用执行，默认按照拼音 a=>z 顺序排列
+        # table.sort(key=lambda x: x[2])
+        # print('词条的数目：=>', word_item_count, '条！')
         return table
 
     def get_table(self):
         if not self._table:
             pinyin_palette = self._read_pinyin_palette()
-            self._table = self._read_table(pinyin_palette)
+            self._table = self._read_word_table(pinyin_palette)
 
         return list(map(lambda x: x[:2], self._table))
 
@@ -122,7 +168,7 @@ class RimeWriter:
     def write(self, file_path, result):
         with open(file_path, 'w', encoding='utf-8') as f:
             f.write(
-                f'''# 程序自动生成\n# 来源【搜狗词库】\n# encoding: utf-8\n# 字条格式：词汇<tab>ci<空格>hui<tab>权重\n# 权重数字越大，表示优先级越高，排名越靠前。\n# 模板\n#\n# 词库详情如下：\n# 词库名称：{result['dict_name']}\n# 词库类型：{result['dict_type']}\n# 词库信息：{result['dict_msg']}\n# 词库示例：{result['dict_exp']}\n---\nname: {self._name}\nversion: {self._version}\nsort: by_weight\nuse_preset_vocabulary: false\n...\n\n''')
+                f'''# 程序自动生成\n# 来源【搜狗词库】\n# encoding: utf-8\n# 字条格式：词汇<tab>ci<空格>hui<tab>权重\n# 权重数字越大，表示优先级越高，排名越靠前。\n# 模板\n#\n# 词库详情如下：\n# 词库名称： {result['dict_name']}\n# 词库类型： {result['dict_type']}\n# 词库信息： {result['dict_msg']}\n# 词库示例： {result['dict_exp']}\n# 词条数目： {len(self._table)} 条.\n---\nname: {self._name}\nversion: {self._version}\nsort: by_weight\nuse_preset_vocabulary: false\n...\n\n''')
             for i in self._table:
                 f.write('\t'.join(i) + '\t1\n')
 
@@ -141,12 +187,8 @@ def read_scel_msg(scel_path: str):
         dict_scel_detail['dict_name'] = msg_reader(f.read(0x338 - 0x130))
         dict_scel_detail['dict_type'] = msg_reader(f.read(0x540 - 0x338))
         dict_scel_detail['dict_msg'] = msg_reader(f.read(0xD40 - 0x540))
-        dict_scel_detail['dict_exp'] = msg_reader(f.read(0x1540 - 0xD40))
-
-        print(r'词库名称：' + dict_scel_detail['dict_name'])
-        print(r'词库类型：' + dict_scel_detail['dict_type'])
-        print(r'词库信息：' + dict_scel_detail['dict_msg'])
-        print(r'词库示例：' + dict_scel_detail['dict_exp'])
+        dict_exp_temp = msg_reader(f.read(0x1540 - 0xD40))
+        dict_scel_detail['dict_exp'] = dict_exp_temp.replace('\n', '\n#') + '\n# ... ...'
     return dict_scel_detail
 
 
@@ -170,7 +212,7 @@ def scel_to_rime(scel_path: str, rime_dir: str, rime_name: str,
     # 生成的文件名称
     rime_dict_yaml = os.path.join(rime_dir, rime_name + RIME_DICT_EXT)
 
-    scel_file = open(scel_path, 'rb')
+    scel_file = open(scel_path, 'rb')  # 'rb':表示以二进制的方式读取文件，默认当然是读取一个字节.
     scel = Scel(scel_file)
     rime_writer = RimeWriter(scel.get_table(), rime_name, rime_version)
     scel_file.close()
@@ -178,12 +220,6 @@ def scel_to_rime(scel_path: str, rime_dir: str, rime_name: str,
     rime_writer.write(rime_dict_yaml, dict_scel_detail)
 
 
-if __name__ == '__main__':
-    scel_path = r'E:\workspace_home\git_work_home\scel2txt\scel\庄子全集【官方推荐】.scel'
-    rime_dir = r'F:\Home\Users\renjy\Desktop'
-    rime_name = r'sougou.pinyin.wanmeishijie'
-    rime_version = str(datetime.date.today())
 
-    dict_scel_detail = read_scel_msg(scel_path)
 
-    scel_to_rime(scel_path, rime_dir, rime_name, rime_version, dict_scel_detail)
+

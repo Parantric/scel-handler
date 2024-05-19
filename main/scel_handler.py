@@ -168,7 +168,7 @@ class RimeWriter:
     def write(self, file_path, result):
         with open(file_path, 'w', encoding='utf-8') as f:
             f.write(
-                f'''# 程序自动生成\n# 来源【搜狗词库】\n# encoding: utf-8\n# 字条格式：词汇<tab>ci<空格>hui<tab>权重\n# 权重数字越大，表示优先级越高，排名越靠前。\n# 模板\n#\n# 词库详情如下：\n# 词库名称： {result['dict_name']}\n# 词库类型： {result['dict_type']}\n# 词库信息： {result['dict_msg']}\n# 词库示例： {result['dict_exp']}\n# 词条数目： {len(self._table)} 条.\n---\nname: {self._name}\nversion: {self._version}\nsort: by_weight\nuse_preset_vocabulary: false\n...\n\n''')
+                f'''# \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\n# 程序自动生成 Start ···\n# 来源【搜狗词库】\n# encoding: utf-8\n# 字条格式：词汇<tab>ci<空格>hui<tab>权重\n# 权重数字越大，表示优先级越高，排名越靠前。\n# 模板\n#\n# 词库详情如下：\n# 词库名称： {result['dict_name']}\n# 词库类型： {result['dict_type']}\n# 词库信息： {result['dict_msg']}\n# 词库示例： {result['dict_exp']}\n# 词条数目： {len(self._table)} 条.\n# 程序自动生成 End ···\n# \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\n# P.S. \n# ① 以上生成内容请不要修改，如有需要，请直接在以下追加.\n# ② 如需添加词组到该文件，不要打乱顺序，请直接在最后词条后面追加.\n# \n---\nname: {self._name}\nversion: {self._version}\nsort: by_weight\nuse_preset_vocabulary: false\n...\n\n''')
             for i in self._table:
                 f.write('\t'.join(i) + '\t1\n')
 
